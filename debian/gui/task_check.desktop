@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0.5
+Type=Application
+Name=TaskCheck
+GenericName=Gestor de tareas
+Comment=Organiza tus tareas, prioridades y subtareas
+Exec=/opt/taskcheck/task_check
+Icon=task_check
+Terminal=false
+Categories=Office;Utility;
+Keywords=tareas;productividad;organizacion;checklist;
+StartupNotify=true

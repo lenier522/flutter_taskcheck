@@ -1,0 +1,14 @@
+flutter_app:
+  command: task_check
+  arch: x64
+  parent: /opt
+  nonInteractive: false
+
+control:
+  Package: taskcheck
+  Version: 1.0.5
+  Architecture: amd64
+  Priority: optional
+  Section: utils
+  Maintainer: "Lenier Cruz <leniercruz02@gmail.com>"
+  Description: TaskCheck - Gestor de tareas y productividad para Linux
