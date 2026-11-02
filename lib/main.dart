@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:task_check/app.dart';
+import 'package:task_check/core/config/app_env.dart';
 import 'package:task_check/core/constants/app_constants.dart';
 import 'package:task_check/core/providers.dart';
 import 'package:task_check/features/desktop_widget/presentation/desktop_widget_app.dart';
@@ -21,6 +22,9 @@ Future<void> main(List<String> args) async {
 
   // Initialize Date formatting for Spanish locale
   await initializeDateFormatting('es', null);
+
+  // Clave de la IA y configuración sensible (archivo .env, nunca versionado).
+  await AppEnv.load();
 
   // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();

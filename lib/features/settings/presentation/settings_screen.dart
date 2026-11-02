@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:task_check/core/config/app_env.dart';
 import 'package:task_check/core/errors/error_handler.dart';
 import 'package:task_check/core/providers.dart';
 import 'package:task_check/core/services/app_notification_service.dart';
@@ -88,6 +89,15 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
+            // AI Assistant Section
+            _buildSection(
+              context,
+              title: 'Asistente IA',
+              icon: Icons.auto_awesome_rounded,
+              children: const [_AiSettingsCard()],
+            ),
+            const SizedBox(height: 20),
+
             // Floating widget Section
             _buildSection(
               context,
@@ -135,7 +145,7 @@ class SettingsScreen extends ConsumerWidget {
                 _buildSettingCard(
                   context,
                   title: 'Versión',
-                  subtitle: '1.0.0',
+                  subtitle: '1.0.7',
                   trailing: null,
                 ),
                 _buildSettingCard(
@@ -345,6 +355,105 @@ class _NotificationSettingsCardState
               onPressed: _enabled && !_sendingTest ? _sendTest : null,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Estado de la clave de Gemini leída desde el archivo `.env`.
+class _AiSettingsCard extends StatefulWidget {
+  const _AiSettingsCard();
+
+  @override
+  State<_AiSettingsCard> createState() => _AiSettingsCardState();
+}
+
+class _AiSettingsCardState extends State<_AiSettingsCard> {
+  bool _reloading = false;
+
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    await AppEnv.load();
+    if (!mounted) return;
+    setState(() => _reloading = false);
+
+    if (AppEnv.hasGeminiApiKey) {
+      ErrorHandler.showSuccessSnackBar(
+        context,
+        'Clave de Gemini cargada correctamente',
+      );
+    } else {
+      ErrorHandler.showErrorSnackBar(
+        context,
+        'No se encontró GEMINI_API_KEY en el archivo .env',
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasKey = AppEnv.hasGeminiApiKey;
+
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(
+            hasKey ? Icons.verified_rounded : Icons.key_off_rounded,
+            color: hasKey ? Colors.green.shade600 : Colors.orange.shade700,
+          ),
+          title: const Text(
+            'Clave de la API',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            hasKey
+                ? 'Configurada: GEMINI_API_KEY detectada en el archivo .env'
+                : 'No configurada: agrega GEMINI_API_KEY a tu archivo .env ',
+          ),
+          trailing: _reloading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : TextButton.icon(
+                  onPressed: _reload,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Recargar'),
+                ),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.description_outlined, size: 20),
+          title: const Text('Archivo .env'),
+          subtitle: Text(
+            AppEnv.sourcePath ??
+                'No encontrado. Rutas buscadas:\n'
+                    '${AppEnv.searchedPaths.join('\n')}',
+          ),
+          isThreeLine: true,
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.memory_rounded, size: 20),
+          title: const Text('Modelo'),
+          subtitle: Text(AppEnv.geminiModel),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: Icon(
+            Icons.lock_outline_rounded,
+            size: 20,
+            color: theme.colorScheme.primary,
+          ),
+          title: const Text('Privacidad'),
+          subtitle: const Text(
+            'El archivo .env está excluido de Git (.gitignore), así que tu '
+            'clave nunca se publica en GitHub.',
+          ),
+          isThreeLine: true,
         ),
       ],
     );

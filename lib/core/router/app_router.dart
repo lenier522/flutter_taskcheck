@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:task_check/features/ai/presentation/ai_chat_screen.dart';
 import 'package:task_check/features/archive/presentation/archive_screen.dart';
 import 'package:task_check/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:task_check/features/settings/presentation/settings_screen.dart';
@@ -85,6 +86,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/ai',
+            builder: (context, state) => const AiChatScreen(),
           ),
         ],
       ),

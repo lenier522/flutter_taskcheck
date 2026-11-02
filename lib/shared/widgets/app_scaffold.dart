@@ -257,6 +257,13 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                               route: '/',
                             ),
                             _buildNavItem(
+                              icon: Icons.auto_awesome_outlined,
+                              activeIcon: Icons.auto_awesome_rounded,
+                              label: 'Asistente IA',
+                              route: '/ai',
+                              badgeColor: const Color(0xFF8B5CF6),
+                            ),
+                            _buildNavItem(
                               icon: Icons.wb_sunny_outlined,
                               activeIcon: Icons.wb_sunny_rounded,
                               label: 'Mi día',

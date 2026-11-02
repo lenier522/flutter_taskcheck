@@ -46,3 +46,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Variables de entorno y secretos (clave de la IA). Nunca se versionan.
+.env
+.env.local
+.env.*
+!.env.example
