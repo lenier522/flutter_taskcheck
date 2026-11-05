@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:task_check/core/database/app_database.dart';
 import 'package:task_check/core/services/task_notification_scheduler.dart';
+import 'package:task_check/features/backup/data/backup_service.dart';
 import 'package:task_check/features/categories/data/category_repository_impl.dart';
 import 'package:task_check/features/categories/domain/category.dart';
 import 'package:task_check/features/categories/domain/category_repository.dart';
@@ -40,6 +41,11 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 final taskRepositoryProvider = Provider<TaskRepository>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return TaskRepositoryImpl(db);
+});
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return BackupService(db);
 });
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {

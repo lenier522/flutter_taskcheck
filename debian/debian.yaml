@@ -6,7 +6,7 @@ flutter_app:
 
 control:
   Package: taskcheck
-  Version: 1.0.7
+  Version: 1.0.8
   Architecture: amd64
   Priority: optional
   Section: utils

@@ -141,6 +141,53 @@ class _DesktopWidgetWindowState extends ConsumerState<DesktopWidgetWindow>
     }
   }
 
+  // ── Arrastre de la ventana ────────────────────────────────────────────────
+  // `windowManager.startDragging()` delega en el gestor de ventanas
+  // (_NET_WM_MOVERESIZE), que en Linux solo reacciona a un botón del ratón
+  // pulsado: con el dedo en una pantalla táctil no mueve la ventana. Aquí
+  // movemos la ventana nosotros mismos con el desplazamiento del puntero, así
+  // que funciona igual con el dedo, el ratón o el lápiz.
+  Offset? _dragOrigin;
+  Offset _dragOffset = Offset.zero;
+
+  /// Unidades de ventana por píxel lógico (1.0 salvo que el escritorio escale).
+  double _dragUnitScale = 1.0;
+  double _windowLogicalWidth = 0;
+
+  Future<void> _beginWindowDrag() async {
+    _dragOffset = Offset.zero;
+    try {
+      final position = await windowManager.getPosition();
+      final bounds = await windowManager.getBounds();
+      _dragUnitScale = _windowLogicalWidth > 0 && bounds.width > 0
+          ? (bounds.width / _windowLogicalWidth).clamp(0.25, 4.0).toDouble()
+          : 1.0;
+      _dragOrigin = position;
+      _applyWindowDrag();
+    } catch (error) {
+      debugPrint('No se pudo iniciar el arrastre del widget: $error');
+      _dragOrigin = null;
+    }
+  }
+
+  void _updateWindowDrag(Offset delta) {
+    _dragOffset += delta * _dragUnitScale;
+    _applyWindowDrag();
+  }
+
+  void _applyWindowDrag() {
+    final origin = _dragOrigin;
+    if (origin == null) return;
+    unawaited(windowManager.setPosition(origin + _dragOffset));
+  }
+
+  void _endWindowDrag() {
+    if (_dragOrigin == null) return;
+    _dragOrigin = null;
+    _dragOffset = Offset.zero;
+    _scheduleBoundsSave();
+  }
+
   Future<void> _toggleAlwaysOnTop() async {
     final next = !_isAlwaysOnTop;
     try {
@@ -320,6 +367,10 @@ class _DesktopWidgetWindowState extends ConsumerState<DesktopWidgetWindow>
     final isDark = theme.brightness == Brightness.dark;
     final tasksAsync = ref.watch(allActiveTasksProvider);
 
+    // Ancho lógico del contenido: se usa para convertir el desplazamiento del
+    // dedo a las unidades que acepta el gestor de ventanas.
+    _windowLogicalWidth = MediaQuery.sizeOf(context).width;
+
     final allTasks = excludeCompletedTasks(
       tasksAsync.asData?.value ?? const <Task>[],
     );
@@ -367,6 +418,9 @@ class _DesktopWidgetWindowState extends ConsumerState<DesktopWidgetWindow>
                   onToggleCollapse: _toggleCollapse,
                   onOpenApp: _openMainApp,
                   onClose: _closeWidget,
+                  onDragStart: _beginWindowDrag,
+                  onDragUpdate: _updateWindowDrag,
+                  onDragEnd: _endWindowDrag,
                 ),
 
                 if (!_collapsed) ...[
@@ -523,6 +577,9 @@ class _WidgetHeader extends StatelessWidget {
     required this.onToggleCollapse,
     required this.onOpenApp,
     required this.onClose,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
   });
 
   final int pendingCount;
@@ -534,6 +591,9 @@ class _WidgetHeader extends StatelessWidget {
   final VoidCallback onToggleCollapse;
   final VoidCallback onOpenApp;
   final VoidCallback onClose;
+  final VoidCallback onDragStart;
+  final ValueChanged<Offset> onDragUpdate;
+  final VoidCallback onDragEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -546,7 +606,10 @@ class _WidgetHeader extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanStart: (_) => windowManager.startDragging(),
+      onPanStart: (_) => onDragStart(),
+      onPanUpdate: (details) => onDragUpdate(details.delta),
+      onPanEnd: (_) => onDragEnd(),
+      onPanCancel: onDragEnd,
       child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 12),

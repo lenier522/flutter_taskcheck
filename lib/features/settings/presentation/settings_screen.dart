@@ -1,9 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:task_check/core/config/app_env.dart';
 import 'package:task_check/core/errors/error_handler.dart';
 import 'package:task_check/core/providers.dart';
 import 'package:task_check/core/services/app_notification_service.dart';
+import 'package:task_check/features/backup/data/backup_service.dart';
 import 'package:task_check/features/desktop_widget/services/widget_autostart_service.dart';
 import 'package:task_check/features/desktop_widget/services/widget_launcher.dart';
 import 'package:task_check/features/settings/data/preferences_repository.dart';
@@ -127,6 +129,15 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
+            // Backup Section
+            _buildSection(
+              context,
+              title: 'Copia de seguridad',
+              icon: Icons.backup_outlined,
+              children: const [_BackupCard()],
+            ),
+            const SizedBox(height: 20),
+
             // Data Section
             _buildSection(
               context,
@@ -145,7 +156,7 @@ class SettingsScreen extends ConsumerWidget {
                 _buildSettingCard(
                   context,
                   title: 'Versión',
-                  subtitle: '1.0.7',
+                  subtitle: '1.0.8',
                   trailing: null,
                 ),
                 _buildSettingCard(
@@ -536,6 +547,163 @@ class _WidgetAutostartCardState extends ConsumerState<_WidgetAutostartCard> {
           subtitle: Text(
             'Disponible en Linux: TaskCheck crea una entrada de inicio '
             'automático en ~/.config/autostart',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Guarda y restaura todas las tareas en un archivo JSON.
+class _BackupCard extends ConsumerStatefulWidget {
+  const _BackupCard();
+
+  @override
+  ConsumerState<_BackupCard> createState() => _BackupCardState();
+}
+
+class _BackupCardState extends ConsumerState<_BackupCard> {
+  bool _working = false;
+
+  Future<void> _export() async {
+    String? path;
+    try {
+      path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar copia de seguridad de TaskCheck',
+        fileName: BackupService.suggestedFileName(),
+        type: FileType.custom,
+        allowedExtensions: const [BackupService.fileExtension],
+        lockParentWindow: true,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ErrorHandler.showErrorSnackBar(
+        context,
+        'No se pudo abrir el diálogo para guardar la copia: $error',
+      );
+      return;
+    }
+    if (path == null || path.isEmpty || !mounted) return;
+
+    // El diálogo devuelve la ruta elegida; si el usuario la escribió sin
+    // extensión, se añade para que el archivo se reconozca después.
+    if (!path.toLowerCase().endsWith('.${BackupService.fileExtension}')) {
+      path = '$path.${BackupService.fileExtension}';
+    }
+
+    setState(() => _working = true);
+    try {
+      final result = await ref.read(backupServiceProvider).exportTo(path);
+      if (!mounted) return;
+      ErrorHandler.showSuccessSnackBar(
+        context,
+        'Copia guardada con ${result.summary}',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ErrorHandler.showErrorSnackBar(context, error);
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _restore() async {
+    FilePickerResult? selection;
+    try {
+      selection = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Elegir copia de seguridad de TaskCheck',
+        type: FileType.custom,
+        allowedExtensions: const [BackupService.fileExtension],
+        allowMultiple: false,
+        lockParentWindow: true,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ErrorHandler.showErrorSnackBar(
+        context,
+        'No se pudo abrir el diálogo para elegir la copia: $error',
+      );
+      return;
+    }
+    final path = selection?.files.single.path;
+    if (path == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.settings_backup_restore_rounded),
+        title: const Text('¿Restaurar la copia de seguridad?'),
+        content: Text(
+          'Se reemplazarán todas las tareas, subtareas y categorías actuales '
+          'por las del archivo:\n\n$path\n\n'
+          'Los datos actuales se perderán. Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Restaurar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _working = true);
+    try {
+      final result = await ref.read(backupServiceProvider).restoreFrom(path);
+      if (!mounted) return;
+      ErrorHandler.showSuccessSnackBar(
+        context,
+        'Copia restaurada: ${result.summary}',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ErrorHandler.showErrorSnackBar(context, error);
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (_working) const LinearProgressIndicator(minHeight: 2),
+        ListTile(
+          leading: const Icon(Icons.save_alt_rounded, size: 20),
+          title: const Text(
+            'Crear copia de seguridad',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: const Text(
+            'Guarda todas las tareas, subtareas y categorías en un archivo JSON '
+            'que puedes conservar o copiar a otro equipo',
+          ),
+          trailing: FilledButton.tonalIcon(
+            icon: const Icon(Icons.save_alt_rounded, size: 18),
+            label: const Text('Exportar'),
+            onPressed: _working ? null : _export,
+          ),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.settings_backup_restore_rounded, size: 20),
+          title: const Text(
+            'Restaurar copia de seguridad',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: const Text(
+            'Reemplaza las tareas actuales por las del archivo de copia '
+            'seleccionado',
+          ),
+          trailing: OutlinedButton.icon(
+            icon: const Icon(Icons.restore_rounded, size: 18),
+            label: const Text('Restaurar'),
+            onPressed: _working ? null : _restore,
           ),
         ),
       ],

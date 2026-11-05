@@ -374,6 +374,51 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Devuelve todas las tareas (incluidas las archivadas) con su categoría y
+  /// subtareas, sin filtros. Se usa para la copia de seguridad.
+  Future<List<Task>> getAllTasksWithDetails() async {
+    final rows =
+        await (select(tasksTable).join([
+              leftOuterJoin(
+                categoriesTable,
+                categoriesTable.id.equalsExp(tasksTable.categoryId),
+              ),
+            ])..orderBy([
+              OrderingTerm(
+                expression: tasksTable.sortOrder,
+                mode: OrderingMode.asc,
+              ),
+            ]))
+            .get();
+
+    final result = <Task>[];
+    for (final row in rows) {
+      final taskEntity = row.readTable(tasksTable);
+      final categoryEntity = row.readTableOrNull(categoriesTable);
+      final subtasksRows =
+          await (select(subtasksTable)
+                ..where((tbl) => tbl.taskId.equals(taskEntity.id))
+                ..orderBy([
+                  (s) => OrderingTerm(
+                    expression: s.sortOrder,
+                    mode: OrderingMode.asc,
+                  ),
+                ]))
+              .get();
+
+      result.add(
+        _mapTaskEntityToDomain(
+          taskEntity,
+          category: categoryEntity != null
+              ? _mapCategoryEntityToDomain(categoryEntity)
+              : null,
+          subtasks: subtasksRows.map(_mapSubtaskEntityToDomain).toList(),
+        ),
+      );
+    }
+    return result;
+  }
+
   Future<void> deleteTask(String taskId) async {
     await _ensureTaskCanBeModifiedById(taskId);
     await transaction(() async {
@@ -413,6 +458,28 @@ class AppDatabase extends _$AppDatabase {
       await delete(tasksTable).go();
       await delete(categoriesTable).go();
       await _seedInitialCategories();
+    });
+    syncFromDisk();
+  }
+
+  /// Reemplaza todo el contenido de la base de datos por el de una copia de
+  /// seguridad. No aplica el bloqueo de las 4 horas: restaurar un respaldo es
+  /// una operación de recuperación, no una edición de tareas.
+  Future<void> replaceAllData({
+    required List<Category> categories,
+    required List<Task> tasks,
+  }) async {
+    await transaction(() async {
+      await delete(subtasksTable).go();
+      await delete(tasksTable).go();
+      await delete(categoriesTable).go();
+
+      for (final category in categories) {
+        await insertCategory(category);
+      }
+      for (final task in tasks) {
+        await insertTask(task);
+      }
     });
     syncFromDisk();
   }
