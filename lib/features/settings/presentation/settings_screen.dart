@@ -156,7 +156,7 @@ class SettingsScreen extends ConsumerWidget {
                 _buildSettingCard(
                   context,
                   title: 'Versión',
-                  subtitle: '1.0.8',
+                  subtitle: '1.0.9',
                   trailing: null,
                 ),
                 _buildSettingCard(
